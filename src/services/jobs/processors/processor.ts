@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 
 import { JOBNAMES } from "../types";
 import webHook from './processes/webhook'
+import cronjob from './processes/cronjob'
 
 
 export async function processor(job: Job) {
@@ -14,9 +15,8 @@ export async function processor(job: Job) {
             await webHook(event)
             break;
         case JOBNAMES.CRONJOB:
-
             console.log("JOB", jobName, " ------ ", event)
-            
+            await cronjob(event)
             break;
         default:
             break;
