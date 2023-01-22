@@ -19,7 +19,7 @@ export default class NodeMailer {
     });
   }
 
-  public async processMain(welcomeData:any, confirmationData?:any) {
+  public async processInitMail(welcomeData:any, confirmationData?:any) {
 
         const promises: Promise<any>[] = []
 

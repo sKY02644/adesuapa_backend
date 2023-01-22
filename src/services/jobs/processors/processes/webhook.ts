@@ -114,7 +114,7 @@ export default async function(event: { event: any; data: { customer: any; refere
     
                         const welcomeData =  Utils.buildWelcomeMessageBody({ ...companyDetails, email, user_name: adminName })
     
-                        const mailResponse = await mailer.processMain(welcomeData, confirmationData)
+                        const mailResponse = await mailer.processInitMail(welcomeData, confirmationData)
     
                         // lets check if the two mails failed then we use bulk insert 
                         const totalFailed: number = mailResponse.response.reduce((total, response) => response.status ? response.status === 'rejected' ? total + 1 : total : 0 , 0)
