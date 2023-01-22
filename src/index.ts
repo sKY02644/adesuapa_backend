@@ -1,3 +1,4 @@
+require('dotenv').config()
 import 'express-async-errors'
 import { json } from 'body-parser'
 import cors from 'cors'
@@ -9,8 +10,6 @@ import os from 'os'
 import path from 'path'
 
 import { app, initServer } from './server'
-
-require('dotenv').config()
 
 // MIDDLEWARES
 import { errorHandler } from './middlewares/error-handler'

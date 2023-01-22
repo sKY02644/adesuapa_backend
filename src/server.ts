@@ -1,10 +1,8 @@
+const MySQLEvents = require("mysql-events")
 import express from "express"
 import winston from "winston"
 import http from "http"
 import { Options } from "sequelize"
-
-const MySQLEvents = require("mysql-events")
-require("dotenv").config()
 
 import configs from "./config/config.js"
 import mainSequelize from "./models"
