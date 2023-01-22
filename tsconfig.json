@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "dist",
+    "strict": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "experimentalDecorators": true,
+    "allowJs": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./",                             /* Base directory to resolve non-absolute module names. */
+    "typeRoots": ["./types"],                             /* List of folders to include type definitions from. */
+    "paths": {
+      "*": ["*", "types/*"]
+    }
+  },
+  "include" : [
+      "src/**/*"   /* Include every ts file in source folder */
+  ],
+  "exclude": ["node_modules"]
+}
