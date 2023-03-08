@@ -1,6 +1,6 @@
 import express from "express";
 import { AuthController } from "../controllers/auth";
-import { rateLimitingMiddleware } from '../middlewares/rate-limiting';
+import { rateLimitingMiddleware, loginLimiter } from '../middlewares/rate-limiting';
 
 import { LookupSchema } from "../utils/schemas";
 import { currentUser } from "../middlewares/current-user";
@@ -15,7 +15,7 @@ const router = express.Router();
 /**
  *  Sigin users
  */
-// router.post("/auth/signin", authValidator, validateRequest, AuthController.login);
+router.post("/auth/signin", loginLimiter, AuthController.login);
 
 // /**
 //  * Signout Users
@@ -25,6 +25,9 @@ const router = express.Router();
 /**
  * Lookup employees details
  */
-router.get("/lookup/:userdetails?", rateLimitingMiddleware, AuthController.lookup);
+router.get("/lookup/:id?/:type?/:institutionid?", rateLimitingMiddleware, AuthController.lookup);
+
+router.post("/auth/reset-password/:stage?", rateLimitingMiddleware, AuthController.resetPassword)
+
 
 export = router;

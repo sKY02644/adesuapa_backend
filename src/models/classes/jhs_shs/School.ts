@@ -90,7 +90,7 @@ export class School extends Model {
     type: DataType.ENUM("active", "blocked", "pending"),
     allowNull: true,
   })
-  status!: string | null;
+  status!: string;
 
   // @ForeignKey(() => MInstitution)
   @Column({

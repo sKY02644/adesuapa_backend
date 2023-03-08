@@ -1,0 +1,117 @@
+version: "3.4"
+services:
+  nodeapp:
+    container_name: nodeappcontainerprod
+    build: 
+      context: .
+      target: production
+    ports:
+      - 4545:4545
+    expose:
+      - 4545
+    command:
+      [
+        "./wait-for-it/wait-for-it.sh",
+        "mysqldbprod:54521",
+        "--timeout=180",
+        "--",
+        "node",
+        "build/index.js"
+      ]
+    environment:
+      NODE_ENV: production
+      PRO_DB_USERNAME: 'root'
+      PRO_DB_PASSWORD: '01161391D@Maymens'
+      PRO_DB_HOST: mysqldbprod
+      PRO_DB_PORT: 54521
+      PRO_DB_NAME: onlinesalesdb
+      PRO_DB_DIALECT: mysql
+      SERVICE_TAGS: prop
+      SERVICE_NAME: nodeappserviceprod
+      PORT: 4545
+      REDIS_PORT: 6379
+      REDIS_HOST: redis-server
+      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      JWT_KEY: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+    depends_on:
+      - mysqldbprod
+      - redis
+      - migration
+    networks:
+      - internalnetprod
+
+  mysqldbprod:
+    image: mysql
+    cap_add:
+      - SYS_NICE
+    container_name: mysqlcontainerprod
+    command: --default-authentication-plugin=caching_sha2_password
+    restart: unless-stopped
+    volumes:
+      - ./dbinit/ini_prod.sql:/docker-entrypoint-initdb.d/0_init.sql
+      - mysqlvdbprod:/var/lib/mysql
+    ports:
+      - 54521:3306
+    expose:
+      - 54521
+    environment:
+      MYSQL_DATABASE: onlinesalesdb
+      # MYSQL_USER: root
+      # MYSQL_PASSWORD: 01161391D@Maymens
+      MYSQL_ROOT_PASSWORD: 01161391D@Maymens
+      SERVICE_TAGS: prop
+      SERVICE_NAME: mysqldbprod
+    networks:
+      - internalnetprod
+  
+  prodmigration:
+    build:
+      context: .
+    command:
+      [
+        "./wait-for-it/wait-for-it.sh",
+        "mysqldbprod:54521",
+        "--timeout=80",
+        "--",
+        "npm",
+        "run",
+        "migrateprod"
+      ]
+    links:
+      - mysqldbprod
+    depends_on:
+      - mysqldbprod
+    env_file: ./.env
+    environment:
+      NODE_ENV: production
+      PRO_DB_USERNAME: 'root'
+      PRO_DB_PASSWORD: '01161391D@Maymens'
+      PRO_DB_HOST: mysqldbprod
+      PRO_DB_PORT: 54521
+      PRO_DB_NAME: onlinesalesdb
+      PRO_DB_DIALECT: mysql
+      SERVICE_TAGS: prop
+      SERVICE_NAME: migrationprod
+      PORT: 4545
+    networks:
+    - internalnetprod
+
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - 6379:6379
+    volumes: 
+      - cacheprod:/data
+    networks:
+      - internalnetprod
+
+networks:
+  internalnetprod:
+    driver: bridge
+
+volumes:
+  mysqlvdbprod:
+    driver: local
+  cacheprod:
+    driver: local

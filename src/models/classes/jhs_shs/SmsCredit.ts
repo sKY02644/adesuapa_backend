@@ -28,13 +28,13 @@ export class SmsCredit extends Model {
     type: DataType.INTEGER,
     allowNull: false
   })
-  smsLeft!: number
+  sms_left!: number
 
   @Column({
     type: DataType.INTEGER,
     allowNull: false
   })
-  smsUsed!: number
+  sms_used!: number
 
   @ForeignKey(() => School)
   @Column({

@@ -1,18 +1,61 @@
-import fs from 'fs'
-import { Op } from 'sequelize';
+import * as fs from 'fs'
+import * as path from 'path'
+import AES256 from '@vsky/aes256'
+import axios from 'axios'
+import redisClient from '../services/redis-connection'
+import { addJobs } from '../services/jobs'
+import { QUENAMES } from '../services/jobs/types'
+import db from "../models"
+import { subDbs } from "../models/institutions_db"
+import { Op } from 'sequelize'
+import { MInstitution, User, SubscriptionHistory, MSetting } from '../models/index.models'
+import AccessControl from '@vsky/accesscontrol'
 
-type WelcomeBody = { 
+export type WelcomeBody = { 
     thank_you_message?: string; welcome_message?: string; 
     product?: string; address?: string; contact?: string; 
     user_name?: string; lower_message?: string; 
     email?: string; company_name?: string 
 }
 
-type ConfirmationBody =  { 
+export type ConfirmationBody =  { 
     institution_name?: string; email?: string; 
     message?: string; user_uid?: string; 
     password?: string; confirmation_url?: string; 
-    user_name?: string; 
+    user_name?: string; default_password?: string;
+    tr?: string;
+}
+
+type StatusResponseType =  { response: boolean, message: string } | Promise<{
+    response: boolean | null;
+    message: string;
+    data?: any;
+}>;
+
+interface FileData {
+    data: string;
+    error?: Error;
+}
+
+type ResetDataType = { password?: string; userid: string; reset_code: string }
+
+export interface StatusFunctions {
+    active(id: User, userTypeData: {[key: string]: any} ): StatusResponseType;
+    pending(id: User, userTypeData: {[key: string]: any} ): StatusResponseType;
+    blocked(id: User, userTypeData: {[key: string]: any} ): StatusResponseType;
+    expired(id: User, userTypeData: {[key: string]: any} ): StatusResponseType;
+}
+
+export interface ResetFunctions {
+    initial(data: ResetDataType): StatusResponseType;
+    confirmation(data: ResetDataType): StatusResponseType;
+    update(data: ResetDataType): StatusResponseType;
+}
+
+export interface Permission {
+    role: string;
+    action: string;
+    resource: string;
 }
 
 export class Utils {
@@ -186,9 +229,9 @@ export class Utils {
         };
     }
 
-    static generateUserId(regex: any, format: string, values: { [x: string]: any; }) {
+    static replacePlaceholders(regex: any, format: string, values: { [x: string]: any; }) {
     // Replace the placeholders with the dynamic values
-        return format.replace(regex, (match: any, placeholder: string | number) => values[placeholder]|| '');
+        return format.replace(regex, (match: any, placeholder: string | number) => values[placeholder] || '');
     }
     
     static changeFormatPosition(regex: any, format: string, newPositions: { [x: string]: any; }, options: { includeHyphen: boolean } = {
@@ -220,7 +263,7 @@ export class Utils {
         delete obj[key];
     }
         
-    static async generateUsersId ( Model: any, newValues: any, condition?: any, countSchoolInitials?: number, attributes?: [] ){
+    static async generateUsersId ( Model: any, newValues: any, condition?: any, countSchoolInitials?: number, attributes?: [] ): Promise<string> {
         let userId, actual_no: string
         let found
         let total = countSchoolInitials === 0 ? countSchoolInitials : await Model.count()
@@ -231,11 +274,18 @@ export class Utils {
             total++
             actual_no = ((total).toString()).padStart(4, '0');
             Utils.modifyObjectValues(values, { ...newValues, total: actual_no })
-            userId = Utils.generateUserId(Utils.regex, idFormat, values)
+            userId = Utils.replacePlaceholders(Utils.regex, idFormat, values)
             found = await Model.findOne( condition ? { ...condition } : { where: { user_id: userId }, attributes: attributes ? [...attributes] : [ 'user_id' ]})
         } while (found){
             return userId
         };
+    }
+
+    static async getInstitutionType (id: string, type?: string) {
+        const idLength = id.length
+        const subCategory = id.trim().toUpperCase().split('')[idLength-1]
+        const where = type && type === 'register' ? { id: id } : { sub_category: subCategory } 
+        return await MInstitution.findOne({ where, attributes: ['category']})
     }
 
     static async isFolderEmpty(folderPath: string) {
@@ -282,6 +332,143 @@ export class Utils {
       
         return result;
     }
-      
+
+    static async readFileData(dirName: string, fileName: string): Promise<FileData> {
+        if (!dirName || !fileName) {
+          return {
+            data: '',
+            error: new Error('Both directory name and file name must be provided')
+          };
+        }
+        const filePath = path.resolve('src', dirName, fileName);      
+        try {
+          const data = await fs.promises.readFile(filePath, 'utf-8');
+          return { data };
+        } catch (error: any) {
+          return {
+            data: '',
+            error
+          };
+        }
+    }
+
+    private static checkExpiry(value: Date){
+        if (!value) return false
+        const currentDateTime = new Date()
+        const endDateTime = new Date(value)
+        if (isNaN(endDateTime.getTime())) return false
+        return endDateTime < currentDateTime
+    }
+
+    static generateRandomCodesPromise(characters: string, numberOfCodes: number, codeSize: number, includeHyphens: boolean, chunkSize: number): Promise<string> {
+        return new Promise((resolve, reject) => {
+          let codes = '';
+          let hyphen = includeHyphens ? '-' : '';
+          let chunkStart = 0;
+          let generatedCodes = new Set();
+        
+          function generateChunk() {
+            for (let i = chunkStart; i < chunkStart + chunkSize && i < numberOfCodes; i++) {
+              let code = '';
+              for (let j = 0; j < codeSize; j++) {
+                code += characters.charAt(Math.floor(Math.random() * characters.length));
+              }
+              if (!generatedCodes.has(code)) {
+                generatedCodes.add(code);
+                codes += code + (i === numberOfCodes - 1 ? '' : hyphen);
+              } else {
+                i--;
+              }
+            }
+            chunkStart += chunkSize;
+            if (chunkStart < numberOfCodes && generatedCodes.size < numberOfCodes) {
+              setTimeout(generateChunk, 0);
+            } else {
+              resolve(codes);
+            }
+          }
+          generateChunk();
+        });
+      }
+
+    static messagesRequired(n: number) {
+        return (n + 159) / 160 | 0;
+    }
+
+    static limitString(str: string, limit: number): string {
+        if (str.length <= limit) {
+            return str;
+        }
+        return str.slice(0, limit);
+    }
+
+    static capitalizeEachFirstLetter (str: string) {
+        if (typeof str !== 'string') return ''
+        return str.replace(/\w\S*/g, function (txt) { return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase(); });
+    }
+
+    static runStatus (): StatusFunctions {
+        return {
+            'active': (user, userTypeData) => {
+                // TODO: COMPLETE THE LOGIN PROCESS
+                return  { response: true, message: '' }
+            },
+            'pending': (user, userTypeData) => {
+                const userType = user.user_type.toUpperCase()
+                const res = userTypeData[userType]['is_cleared']
+                const resMessage = userTypeData[userType]['school_pending_message']
+                return  { response: res, message: resMessage }
+            },
+            'blocked': (user, userTypeData) => {
+                const userType = user.user_type.toUpperCase()
+                const res = userTypeData[userType]['is_cleared']
+                const resMessage = userTypeData[userType]['school_blocked_message']
+                return  { response: res, message: resMessage }
+            },
+            'expired': async (user, userTypeData) => {
+
+                const result = await Utils.getInstitutionType(user.user_id)
+
+                const userType = user.user_type.toUpperCase()
+                const role_permission =  user.role_permission
+                const ac = new AccessControl(role_permission)
+
+                // TODO: CHANGE TO ELSE VALUE TO USE THE UNIVERSITY MODEL WHEN ITS DONE
+                const Model = result?.category.toLowerCase() === 'jhs_shs' ? SubscriptionHistory : SubscriptionHistory
+
+                const endDateTime = await Model.findOne( { where: { schools_id: user.schools_id, active: 1 } })
+
+                if(!endDateTime){
+                    return  { response: true, message: 'no active account found' }
+                }
+
+                const isExpired = Utils.checkExpiry(endDateTime.end_date)
+
+                if(!isExpired){
+                    return  { response: false, message: 'not expired' }
+                }
+
+                // check the user type
+                const response = userTypeData[userType]['is_cleared']
+                const resMessage = userTypeData[userType]['school_subscription_expired_message']
+
+                if(!response){
+                    return { response: true, message: resMessage, data: null }
+                }
+
+                const userRole =  userTypeData[userType]['type']
+                
+                const isAllowed = ac.canPerformAction(userRole, 'schoolaccountsubscriptions', 'update')
+
+                // check if useer has permission to update the resourse "school_account_subscriptions"
+                if(!isAllowed){
+                    return { response: true, message: resMessage, data: '' }
+                }
+
+                return { response: true,  message: resMessage, data: user }
+
+            },
+        }
+    }
 
 }

@@ -131,9 +131,18 @@ export class PaymentController {
                 selected_institution, selected_subscription, selected_country
             }, { transaction: mainTransaction })
 
-            await PaymentHistory.destroy({ where: { payment_type: 'registeration', email, status: Status.PENDING },  transaction: subTransaction  })
+            const institutionType = await Utils.getInstitutionType(selected_institution, 'register')
 
-            await PaymentHistory.create({
+            if(!institutionType){
+                return res.status(ErrorCodes.BAD_REQUEST).json({ message: 'System error' , data: null })
+            }
+            
+            // TODO: CHANGE TO ELSE VALUE TO USE THE UNIVERSITY MODEL WHEN ITS DONE
+            const PaymentHistoryModel = institutionType.category.toLowerCase() === 'jhs_shs' ? PaymentHistory : PaymentHistory
+
+            await PaymentHistoryModel.destroy({ where: { payment_type: 'registeration', email, status: Status.PENDING },  transaction: subTransaction  })
+
+            await PaymentHistoryModel.create({
                 email, payment_type: 'registeration', amount, status: Status.PENDING, reference: response.data.reference,
                 authorization_url: response.data.authorization_url, access_code: response.data.access_code,
             }, { transaction: subTransaction })
@@ -169,7 +178,7 @@ export class PaymentController {
                 const event = req.body;
     
                 // call the add the event to the jobs for the worker to process at the background
-                // this is to enable us send a 200 back to the webhook call to prevent been flaged as failed
+                // this is to enable us send a 200 back to the webhook to prevent been flaged as failed 
                await addJobs(event, QUENAMES.WEBHOOK)
     
                 const user = event.data.customer.email

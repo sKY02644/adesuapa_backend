@@ -1,45 +1,117 @@
 import { Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
+import AccessControl from '@vsky/accesscontrol'
 import { BadRequestError } from '../errors/bad-request-error'
 import { Op } from 'sequelize'
 
-import { ErrorCodes } from '../utils/enums'
+import { ErrorCodes, Status } from '../utils/enums'
+import { Utils, StatusFunctions, ResetFunctions } from '../utils/utils'
 
-import { User, MInstitution, School } from '../models/index.models'
+import { User, School, MInstitution, MResource, SubscriptionHistory, MSetting } from '../models/index.models'
+import AuthService from '../services/auth-services'
 
 export class AuthController {
 
+    static async resetPassword(req: Request, res: Response){
+        const { stage } = req.params
+        const { password, userid, reset_code } = req.body
+
+        try {
+
+            const data = { password, userid, reset_code }
+            
+            console.log(data)
+            
+            const step = stage as keyof ResetFunctions
+            
+            const response = await AuthService.resetPassword()[step](data)
+    
+            res.status(ErrorCodes.OK).json({ response })
+
+        } catch(error: any) {
+            throw new BadRequestError(error.message)
+        }
+
+    }
 
     static async lookup(req: Request, res: Response) {
 
-        const { userdetails } = req.params
+        const { id, type, institutionid } = req.params
 
-        if (userdetails) {
+        if (id) {
 
             try {
 
                 const ipAddr = req.ip
 
-                    const user = await User.findOne({
-                        where: {
-                            [Op.or]: {
-                                email: userdetails,
-                                id: userdetails,
-                                user_id: userdetails
-                            }
-                        },
-                        include: [
-                            {
-                                model: School,
-                                as: 'school'
-                            }
-                        ],
-                    })
+                const institutionID = type && type === 'register' ? institutionid : id
+                
+                const result = await Utils.getInstitutionType(institutionID, type)
 
-                    res.status(ErrorCodes.OK).send({ response: true, data: user })
+                if(!result){
+                    return res.status(ErrorCodes.BAD_REQUEST).json({ status: false, message: 'Invalid ID', data: null })
+                }
+                
+                // TODO: CHANGE TO ELSE VALUE TO USE THE UNIVERSITY MODEL WHEN ITS DONE
+                const Model = result?.category.toLowerCase() === 'jhs_shs' ? User : User
+
+                const user = await Model.findOne({
+                    where: {
+                        [Op.or]: {
+                            email: id,
+                            id: id,
+                            user_id: id
+                        }
+                    },
+                    include: [
+                        {
+                            model: School,
+                            as: 'school',
+                            attributes: {
+                                exclude: ['createdAt', 'updatedAt']
+                            }
+                        }
+                    ],
+                    attributes: {
+                        exclude: ['createdAt', 'updatedAt']
+                    }
+                })
+
+                if(type && type.toLowerCase() === 'register'){
+                    return res.status(ErrorCodes.OK).send({ status: !!user, message: '', data: null })
+                }
+
+                if(!user){
+                    return res.status(ErrorCodes.BAD_REQUEST).json({ status: false, message: 'Invalid User ID', data: null })
+                }
+
+                const settings = await MSetting.findAll({ where: { key: { [Op.or]: ['user_type', 'company_details'] } } })
+
+                const userTypeData = settings?.filter(v => v.key === 'user_type')[0]['value'] as {[key: string]: any}
+
+                const schooStatus = user.school.status as keyof StatusFunctions
+
+                if(schooStatus !== Status.ACTIVE){
+                    const resultStatus = await Utils.runStatus()[schooStatus](user, userTypeData)
+                    return res.status(ErrorCodes.BAD_REQUEST).json({ status: false, message: resultStatus.message, data: null  })
+                }
+
+                // school acount is active so we can go ahead and check if it has expired or not
+                const expiredStatus: keyof StatusFunctions = Status.EXPIRED
+
+                // check if the school account has expired
+                const isExpired = await Utils.runStatus()[expiredStatus](user, userTypeData)
+
+                if(isExpired.response){
+                    return res.status(ErrorCodes.BAD_REQUEST).json({ status: false, mmessage: isExpired.message, data: null })
+                }
+
+                if(schooStatus === Status.ACTIVE && !isExpired.response ){
+                    return res.status(ErrorCodes.OK).json({ status: true, message: '', data: user })
+                }
 
             } catch (error: any) {
-                //   console.log(error)
+                  console.log(error)
                 throw new BadRequestError(error.message)
             }
 
@@ -55,118 +127,63 @@ export class AuthController {
     //  * @param res 
     //  * @returns status code of 200 and the existing users data
     //  */
-    // static async login(req: Request, res: Response) {
+    static async login(req: Request, res: Response) {
 
-    //     const { password, userid, username, role } = req.body
-    //     const ipAddr = req.ip
+        const { password, userid } = req.body
+        const ipAddr = req.ip
 
-    //     try {
+        try {
 
-    
-    //         const existingUser = await User.findOne({
-    //             where: {
-    //                 id: userid
-    //             },
-    //             include: [
-    //                 {
-    //                     model: Company,
-    //                     attributes: {
-    //                         exclude: ['created_at', 'updated_at']
-    //                     },
-    //                     include: [
-    //                         {
-    //                             model: Supplier,
-    //                             required: false,
-    //                             attributes: {
-    //                                 exclude: ['created_at', 'updated_at']
-    //                             }
-    //                         },
-    //                         {
-    //                             model: Tax,
-    //                             required: false,
-    //                             attributes: {
-    //                                 exclude: ['created_at', 'updated_at']
-    //                             }
-    //                         },
-    //                         {
-    //                             model: CompanySetting,
-    //                             required: false,
-    //                             attributes: {
-    //                                 exclude: ['created_at', 'updated_at']
-    //                             }
-    //                         },
-    //                         {
-    //                             model: Permission,
-    //                             required: false,
-    //                             attributes: {
-    //                                 exclude: ['created_at', 'updated_at']
-    //                             }
-    //                         },
-    //                         {
-    //                             model: Branch,
-    //                             required: false,
-    //                             attributes: {
-    //                                 exclude: ['created_at', 'updated_at']
-    //                             },
-    //                             // if user role is not ADMIN or SUPERADMIN get only products belonging to his company->branch
-    //                             // where: Utils.isAllowed(role) ? {} : {id: { [Op.eq]: Sequelize.col('User.branch_id') }},
-    //                             where: {},
-    //                             include: [
-    //                                 {
-    //                                     model: Product,
-    //                                     limit: 10,
-    //                                     attributes: {
-    //                                         exclude: ['created_at', 'updated_at']
-    //                                     }
-    //                                 } 
-    //                             ]
-    //                         }
-    //                     ]
-    //                 }
-    //             ],
-    //             attributes: {
-    //                 exclude: ['created_at', 'updated_at', 'branch', 'department']
-    //             }
-    //         })
-    
-    //         const verified = await existingUser?.validPassword(password) || false
+            if(!userid || !password){
+                throw new BadRequestError('Invalid username or password')
+            }
 
-    //         if (verified) {
-    
-    //             const existingUserJwt = jwt.sign({
-    //                 is_retail_shop: (existingUser?.company.company_settings.filter((setting:any) => setting.key == 'is_retail_shop')[0])!['value'],
-    //                 id: existingUser!.id,
-    //                 employee_id: existingUser!.employee_id,
-    //                 role: existingUser!.role,
-    //                 company_id: existingUser!.company_id,
-    //                 branch_id: existingUser!.branch_id,
-    //                 username
-    //             }, process.env.JWT_KEY!.split('-').join(''), {
-    //                 expiresIn: '20h'
-    //             })
+            const result = await Utils.getInstitutionType(userid)
+            
+            // TODO: CHANGE TO ELSE VALUE TO USE THE UNIVERSITY MODEL WHEN ITS DONE
+            const Model = result?.category.toLocaleLowerCase() === 'jhs_shs' ? User : User
+            
+            const user = await Model.findOne({ where: { user_id: userid.toUpperCase() }, attributes: {
+                exclude: ['createdAt', 'updatedAt']
+            }})
 
-    //             req.session = { jwt: existingUserJwt }
+            if(!user){
+                throw new BadRequestError('Invalid username or password')
+            }
 
-    //             const cacheKey = 'company_settings_' + existingUser?.company_id
-    //             const companySettings = existingUser?.company.company_settings
+            const settings = await MSetting.findAll({ where: { key: { [Op.or]: ['user_type', 'company_details'] } } })
 
-    //             await ActivityLogs.create({
-    //                 action_type: 'Authentication',
-    //                 ip: req.ip,
-    //                 description: `${username?.toUpperCase()} - logged in on ${new Date().toUTCString()}`,
-    //                 company_id: existingUser!.company_id,
-    //                 branch_id: existingUser!.branch_id,
-    //                 user_id: existingUser!.id
-    //             })
+            const userTypeData = settings?.filter(v => v.key === 'user_type')[0]['value'] as {[key: string]: any}
 
-    //             res.status(ErrorCodes.OK).send({ response: true, data: {existingUserJwt,  role:  existingUser!.role}, existingUser })
-    //         }
+            const expiredStatus: keyof StatusFunctions = Status.EXPIRED
 
-    //     }catch(error: any){
-    //         throw new BadRequestError(error.message)
-    //     }
+            const isExpired = await Utils.runStatus()[expiredStatus](user, userTypeData)
 
-    // }
+            if(isExpired.response){
+                return res.status(ErrorCodes.BAD_REQUEST).json({ status: false, mmessage: isExpired.message, data: null })
+            }
+            
+            const verified = await user.validPassword(password) || false
+                
+            if (!verified) {
+                return res.status(ErrorCodes.UNAUTHORIZED).send({ response: false, data: null })
+            }
+
+            const resources = await MResource.findOne({ where: { institution_id: user.institutions_id }, attributes: {
+                exclude: ['createdAt', 'updatedAt']
+            }})
+
+            const userJwt = jwt.sign({ ...user }, process.env.JWT_KEY!.split('-').join(''), { expiresIn: '20h' })
+
+            req.session = { jwt: userJwt }
+
+            res.status(ErrorCodes.OK).send({ response: true, data: user, resources })
+
+        }catch(error: any){
+            throw new BadRequestError(error.message)
+        }
+
+    }
 
     // /**
     //  * Logout static function
@@ -174,27 +191,27 @@ export class AuthController {
     //  * @param res 
     //  * @returns an empty object and status code of 200
     //  */
-    // static async logout(req: Request, res: Response) {
-    //     const { company_id, branch_id, username, id } = req.currentUser! || {}
+    static async logout(req: Request, res: Response) {
+        const { company_id, branch_id, username, id } = req.currentUser! || {}
 
-    //     try {
+        try {
             
-    //         await ActivityLogs.create({
-    //             action_type: 'Authentication',
-    //             ip: req.ip,
-    //             description: `${username.toUpperCase()} - logged out on ${new Date().toUTCString()}`,
-    //             company_id: company_id,
-    //             branch_id: branch_id,
-    //             user_id: id
-    //         })
+            // await ActivityLogs.create({
+            //     action_type: 'Authentication',
+            //     ip: req.ip,
+            //     description: `${username.toUpperCase()} - logged out on ${new Date().toUTCString()}`,
+            //     company_id: company_id,
+            //     branch_id: branch_id,
+            //     user_id: id
+            // })
     
-    //         req.currentUser = null
-    //         req.session = null
-    //         res.send({})
+            req.currentUser = null
+            req.session = null
+            res.send({})
 
-    //     } catch(error: any){
-    //         throw new BadRequestError(error.message)
-    //     }
-    // }
+        } catch(error: any){
+            throw new BadRequestError(error.message)
+        }
+    }
 
 }

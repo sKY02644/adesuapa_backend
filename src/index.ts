@@ -1,3 +1,4 @@
+import 'module-alias/register'
 require('dotenv').config()
 import 'express-async-errors'
 import { json } from 'body-parser'
@@ -12,15 +13,15 @@ import path from 'path'
 import { app, initServer } from './server'
 
 // MIDDLEWARES
-import { errorHandler } from './middlewares/error-handler'
+import { errorHandler } from '@middlewares/error-handler'
 
-import { eventsHandler } from "./services/serverSentEvents";
+import { eventsHandler } from "@services/serverSentEvents";
 
 // ERRORS
 import { NotFoundError } from './errors/not-found-error'
 
 // INDEX CONTROLLERS
-import { defaults } from './controllers'
+import { defaults } from '@controllers/index'
 
 // Self-Invoking Function
 ( async function () {
@@ -29,7 +30,7 @@ import { defaults } from './controllers'
   const PORT = +(`${process.env.PORT}`) || 4545
   const STABLEVERSION = `${process.env.STABLE_VERSION}`
   
-  app.use(morgan('tiny'))
+  app.use(morgan('dev'))
   app.use(helmet())
   app.set('trust proxy', true)
   app.use(cors({

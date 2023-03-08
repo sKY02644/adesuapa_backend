@@ -21,6 +21,7 @@ export enum Status {
     SUCCESS = 'success',
     ACTIVE = 'active',
     DELETED = 'deleted',
+    EXPIRED = 'expired',
     BLOCKED = 'blocked',
     SUSPENDED = 'suspended',
     VACATION = 'vacation'

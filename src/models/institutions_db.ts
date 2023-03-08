@@ -42,7 +42,9 @@ export default async (settings: any) => {
         },
     })
     
-    sequelize.addModels([ __dirname + '/classes/' + settings?.type + '/*.js' ])
+    const modelsPath = env === 'production' ? [ __dirname + '/classes/' + settings?.type + '/*.js' ] : [ __dirname + '/classes/' + settings?.type + '/*.ts' ]
+
+    sequelize.addModels(modelsPath)
 
     subDbs.set(settings?.type, sequelize)
 

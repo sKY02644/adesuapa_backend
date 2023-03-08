@@ -7,6 +7,7 @@ import { MTempUserDetails } from './classes/main/MTempUserDetails'
 import { MCountry } from './classes/main/MCountry'
 import { MMail } from './classes/main/MMail'
 import { MPaymentMethod } from './classes/main/MPaymentMethod'
+import { MResource } from './classes/main/MResource'
 
 // JHS_SHS CLASSES IMPORTS
 import { User } from './classes/jhs_shs/User'
@@ -50,5 +51,6 @@ export {
   MTempUserDetails,
   MCountry,
   MPaymentMethod,
-  MMail
+  MMail,
+  MResource
 }

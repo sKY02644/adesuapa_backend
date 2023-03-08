@@ -1,0 +1,93 @@
+version: '3.6'
+
+services:
+  mysqldbdev:
+    image: mysql
+    container_name: mysqlcontainerdev
+    # command: --default-authentication-plugin=caching_sha2_password
+    restart: always
+    command: --init-file /data/application/init.sql
+    volumes:
+      - mysqlvdbdev:/var/lib/mysql
+      - ./db/init.sql:/data/application/init.sql
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 3307:3306
+    expose:
+      - 3307
+    environment:
+      - MYSQL_DATABASE=adesuapa
+      - MYSQL_USER=dev
+      - MYSQL_PASSWORD=01161391D@Maymens
+      - MYSQL_ROOT_PASSWORD=01161391D@Maymens
+    networks:
+      - internalnetdev
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    restart: always
+    depends_on:
+      - mysqldbdev
+    links:
+      - mysqldbdev:db
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=mysqldbdev
+      - MYSQL_ROOT_PASSWORD=01161391D@Maymens
+
+  redis:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - 6379:6379
+    volumes: 
+      - cachedev:/data
+    networks:
+      - internalnetdev
+  
+  nodeapp:
+    container_name: nodeappcontainerdev
+    build: 
+      context: .
+      target: development
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    ports:
+      - 4545:4545
+    expose:
+      - 4545
+    command: npm run dev:node
+    environment:
+      NODE_ENV: development
+      MYSQL_DB_USERNAME: 'root'
+      MYSQL_DB_PASSWORD: '01161391D@Maymens'
+      MYSQL_DB_HOST: mysqldbdev
+      MYSQL_DB_PORT: 3306
+      MYSQL_DB_NAME: adesuapa
+      DB_DIALECT: mysql
+      PORT: 4545
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STABLE_VERSION: 'v1'
+      API_VERSION: 'v1'
+      # REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      JWT_KEY: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      TEST_SECRET_KEY: sk_test_5c6c7800030f3ecff654193466178e85319a6589
+    depends_on:
+      - mysqldbdev
+      - redis
+    networks:
+      - internalnetdev
+
+networks:
+  internalnetdev:
+    driver: bridge
+
+volumes:
+  mysqlvdbdev:
+    driver: local
+  cachedev:
+    driver: local

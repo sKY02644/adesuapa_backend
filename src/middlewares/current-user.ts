@@ -20,34 +20,6 @@ export const currentUser = async (req: Request, res: Response, next: NextFunctio
 
     try {
 
-        if (req.params.currentuserid) {
-
-            let data = JSON.parse(req.params.currentuserid)
-
-            req.session = null
-
-            result = await User.findOne({
-                where: {
-                    [Op.or]: [
-                        { email: data.currentuserid },
-                        // { userid: data.currentuserid }
-                    ]
-                },
-                attributes: {
-                    exclude: ['CompanyId', 'deletedAt']
-                },
-                include: [
-                    {
-                        model: School,
-                        attributes: {
-                            exclude: ['CompanyId', 'deletedAt']
-                        }
-                    }
-                ]
-            })
-
-        }
-
         // TODO: use if we now want to use session cookies web
         if ((!req.session!.jwt) && !req.params.currentuserid) {
          return next()

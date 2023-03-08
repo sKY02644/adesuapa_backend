@@ -1,12 +1,13 @@
 import { UUIDV4 } from 'sequelize'
-import { Model, Table, DataType, BelongsTo, ForeignKey, Column, BeforeCreate } from 'sequelize-typescript'
+import { Model, Table, DataType, BelongsTo, ForeignKey, Column, BeforeCreate, BeforeUpdate } from 'sequelize-typescript'
 
 import { School, MInstitution } from '../../index.models'
 
 import { PasswordHash } from '../../../utils/password-hash'
+import { Permission } from '../../../utils/utils'
 
 
-const PROTECTED_ATTRIBUTES = ['password']
+const PROTECTED_ATTRIBUTES = ['password', 'reset_password_token', 'role_permission']
 
 @Table({
   tableName: 'users',
@@ -51,6 +52,12 @@ export class User extends Model {
 
   @Column({
     type: DataType.STRING,
+    allowNull: true
+  })
+  name!: string
+
+  @Column({
+    type: DataType.STRING,
   })
   address!: string
 
@@ -76,7 +83,7 @@ export class User extends Model {
   @Column({
     type: DataType.JSON,
   })
-  role_permission!: string
+  role_permission!: Permission[]
 
   @Column({
     type: DataType.BOOLEAN,
@@ -133,11 +140,11 @@ export class User extends Model {
     return attributes
   }
 
+  @BeforeUpdate
   @BeforeCreate
   static async hashPassword (user: User){
-    console.log("PASSWORD: >>> : ", user.password)
     const hashed = await PasswordHash.toHash(user.password!)
-    user.password = hashed
+    user.password = user.changed('password') ? hashed : user.password
   }
 }
 

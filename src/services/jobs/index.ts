@@ -1,10 +1,7 @@
 // WORKERS
-import { webhookWorker } from './workers/webhook-workers';
+import { worker } from './workers/workers';
 
 // PRODUCERS
-import { addJobs } from './producers/webhook-producers';
+import { addJobs } from './producers/producers';
 
-export { 
-    webhookWorker,
-    addJobs
- }
+export { worker, addJobs }

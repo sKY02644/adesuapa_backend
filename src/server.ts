@@ -4,19 +4,19 @@ import winston from "winston"
 import http from "http"
 import { Options } from "sequelize"
 
-import configs from "./config/config.js"
+import configs from "@config/config"
 import mainSequelize from "./models"
 import institutionsBb from "./models/institutions_db"
 
 // import { socketConnection } from "./listeners/connection"
 
 import winston_logger from "./utils/logger"
-import { webhookWorker } from "./services/jobs/index.js"
+import { worker } from "./services/jobs/index"
 import { umZug } from "./services/umZug"
-import { Utils } from "./utils/utils.js"
-import { MSetting } from "./models/index.models.js"
+import { Utils } from "./utils/utils"
+import { MSetting } from "./models/index.models"
 import { addJobs } from './services/jobs'
-import { QUENAMES } from './services/jobs/types.js'
+import { QUENAMES } from './services/jobs/types'
 
 
 const env = process.env.NODE_ENV || "development"
@@ -45,6 +45,8 @@ export const initServer = async (host: string, port: number) => {
 
     await mainSequelize.authenticate()
 
+    await mainSequelize.query(`CREATE DATABASE IF NOT EXISTS adesuapa`)
+
     winston_logger.info("Main Database connected successfully")
     
     const settings = await Utils.getSettings(MSetting)
@@ -69,12 +71,12 @@ export const initServer = async (host: string, port: number) => {
       )
     }
 
-    webhookWorker.run()
+    worker.run()
 
     // start the cron job
-    //TODO:  //addJobs({ event: QUENAMES.CRONJOB }, QUENAMES.CRONJOB)
+    // TODO:  addJobs({ event: QUENAMES.CRONJOB }, QUENAMES.CRONJOB)
 
-    httpServer.listen(port, host, () => {
+    httpServer.listen(port, "0.0.0.0", () => {
       winston_logger.add(
         new winston.transports.Console({
           format: winston.format.combine(
@@ -95,7 +97,7 @@ export const initServer = async (host: string, port: number) => {
     httpServer.close()
 
     // gracefully shutdown worker
-    await webhookWorker.close()
+    await worker.close()
 
     winston_logger.error(
       "Unable to connect to the database. Retrying in... " + retrySec
@@ -106,7 +108,15 @@ export const initServer = async (host: string, port: number) => {
     retrySec += 1000
   }
 
+  let retryTotal = 5
+
   httpServer.on("error", async (e: any) => {
+    retryTotal--
+
+    if(retryTotal === 0) {
+      process.exit(1)
+    }
+
     if (e.code === "EADDRINUSE" || e.code === "ENOTFOUND") {
       winston_logger.info(
         `Address in use or not found, retrying... || http://${host}:${port} || ${e.code}`

@@ -22,6 +22,12 @@ export async function addJobs(data: any, type: string) {
         },
       });
       break;
+    case QUENAMES.PASSWORDRESETCODE:
+      await que.add(JOBNAMES.PASSWORDRESETCODEJOB, data, {
+        removeOnComplete: { age: 3600, count: 1000 },
+        removeOnFail: { age: 24 * 3600 },
+      });
+      break;
     default:
       break;
   }

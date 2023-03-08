@@ -38,6 +38,8 @@ const sequelize: Sequelize = new Sequelize({
   },
 })
 
-sequelize.addModels([__dirname + '/classes/main/*.js'])
+const modelsPath = env === 'production' ? [__dirname + '/classes/main/*.js'] : [__dirname + '/classes/main/*.ts']
+
+sequelize.addModels(modelsPath)
 
 export default sequelize
