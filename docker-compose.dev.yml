@@ -19,8 +19,8 @@ services:
     environment:
       - MYSQL_DATABASE=adesuapa
       - MYSQL_USER=dev
-      - MYSQL_PASSWORD=01161391D@Maymens
-      - MYSQL_ROOT_PASSWORD=01161391D@Maymens
+      - MYSQL_PASSWORD=*******************
+      - MYSQL_ROOT_PASSWORD=*******************
     networks:
       - internalnetdev
 
@@ -35,7 +35,7 @@ services:
       - "8081:80"
     environment:
       - PMA_HOST=mysqldbdev
-      - MYSQL_ROOT_PASSWORD=01161391D@Maymens
+      - MYSQL_ROOT_PASSWORD=*******************
 
   redis:
     image: redis:6.2-alpine
@@ -63,7 +63,7 @@ services:
     environment:
       NODE_ENV: development
       MYSQL_DB_USERNAME: 'root'
-      MYSQL_DB_PASSWORD: '01161391D@Maymens'
+      MYSQL_DB_PASSWORD: '*******************'
       MYSQL_DB_HOST: mysqldbdev
       MYSQL_DB_PORT: 3306
       MYSQL_DB_NAME: adesuapa
@@ -73,8 +73,8 @@ services:
       REDIS_PORT: 6379
       STABLE_VERSION: 'v1'
       API_VERSION: 'v1'
-      # REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-      JWT_KEY: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      # REDIS_PASSWORD: ********************
+      JWT_KEY: ********************
       TEST_SECRET_KEY: sk_test_5c6c7800030f3ecff654193466178e85319a6589
     depends_on:
       - mysqldbdev

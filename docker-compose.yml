@@ -21,7 +21,7 @@ services:
     environment:
       NODE_ENV: production
       PRO_DB_USERNAME: 'root'
-      PRO_DB_PASSWORD: '01161391D@Maymens'
+      PRO_DB_PASSWORD: '*************'
       PRO_DB_HOST: mysqldbprod
       PRO_DB_PORT: 54521
       PRO_DB_NAME: onlinesalesdb
@@ -31,8 +31,8 @@ services:
       PORT: 4545
       REDIS_PORT: 6379
       REDIS_HOST: redis-server
-      REDIS_PASSWORD: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
-      JWT_KEY: eYVX7EwVmmxKPCDmwMtyKVge8oLd2t81
+      REDIS_PASSWORD: '********************'
+      JWT_KEY: '********************'
     depends_on:
       - mysqldbprod
       - redis
@@ -57,8 +57,8 @@ services:
     environment:
       MYSQL_DATABASE: onlinesalesdb
       # MYSQL_USER: root
-      # MYSQL_PASSWORD: 01161391D@Maymens
-      MYSQL_ROOT_PASSWORD: 01161391D@Maymens
+      # MYSQL_PASSWORD: *************
+      MYSQL_ROOT_PASSWORD: '*************'
       SERVICE_TAGS: prop
       SERVICE_NAME: mysqldbprod
     networks:
@@ -85,7 +85,7 @@ services:
     environment:
       NODE_ENV: production
       PRO_DB_USERNAME: 'root'
-      PRO_DB_PASSWORD: '01161391D@Maymens'
+      PRO_DB_PASSWORD: '*************'
       PRO_DB_HOST: mysqldbprod
       PRO_DB_PORT: 54521
       PRO_DB_NAME: onlinesalesdb
